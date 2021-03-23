@@ -1,0 +1,220 @@
+\RequirePackage{plautopatch}
+\RequirePackage[l2tabu, orthodox]{nag}
+
+\documentclass[a5paper]{jarticle}
+\pagestyle{empty}
+\usepackage{graphicx}
+\usepackage{ascmac}
+\usepackage{here}
+\title{動的計画法}
+
+\author{木津川楓輝}
+\date{}
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\section{はじめに}
+動的計画法は，コンピューターによって最適化問題を解く代表的な手法であり，人工知能，画像・音声処理，遺伝子情報処理などの幅広い分野で使われています．この記事で応用まで扱うことはできませんが，動的計画法の基本を説明し，簡単な具体例を紹介しようと思います．
+\section{多段階決定問題}
+前述のように，動的計画法は最適化問題を解く手法です．この記事では，各変数$x_i$が有限個の離散値$\{a_1, \cdots, a_N\}$をとる場合に，$n$変数関数$f(x_1, \cdots, x_n)$を最大化する問題を考えます（実際には各変数で取りうる値が異なっていても構いません．後の例題ではそのような場合を扱います）．これを以下のように表すことにします．
+\[
+J = f(x_1, \cdots, x_n) \rightarrow \max
+\]
+このとき，各変数がとる値の組合せは$N^n$通りありますが，一般にはこれらを全て調べなければ$J$の最大値は分かりません．何故なら，一つでも調べなかったとすると，関数$f$に特別な性質がない限り，その省いた値で最大値を取る可能性を排除できないからです．しかし，関数$f$が以下のような形で表されるときには全て調べなくても最大値が分かることが知られています．
+\begin{eqnarray}
+\label{pair}
+J = f_1(x_1) + h_1(x_1, x_2) + h_2(x_2, x_3) + \cdots + h_{n - 1}(x_{n - 1}, x_n) \rightarrow \max
+\end{eqnarray}
+上式では，$f$が$x_i$と$x_{i + 1}$の対ごとの2変数関数の和になっています．変数$x_i$の値を選ぶことを何らかの”決定”とみなせば，これは段階的に次々と決定を下していく問題とみなせます．まず，最初に選ぶ変数$x_1$に対する利益が関数$f(x_1)$で与えられています．そして，最初に選んだ変数$x_1$に対して次に$x_2$を選んだときの利益が$h_1(x_1, x_2)$です．以下同様に，$i$番目に選んだ変数$x_i$に対して次に$x_{i + 1}$を選んだときの利益が$h_i(x_i, x_{i + 1})$です．このとき，式（\ref{pair}）は「利益の総和が最大となるように各段階で決定を下せ」という問題であると解釈できます．
+
+この問題は次のように解けば良いと思うかもしれません．
+\begin{itembox}[l]{解法（？）}
+\begin{enumerate}
+   \item $f_1(x_1)$が最大となるように$x_1$を決める．
+   \item 選んだ$x_1$に対して$h_1(x_1, x_2)$が最大となるように$x_2$を決める．
+   \item 選んだ$x_2$に対して$h_2(x_2, x_3)$が最大となるように$x_3$を決める．\\ $\cdots$
+   \item 選んだ$x_{n - 1}$に対して$h_{n - 1}(x_{n - 1}, x_n)$が最大となるように$x_n$を決める．
+\end{enumerate}
+\end{itembox}
+
+一見これで良さそうですが，この方法で最適解を得られる保証はありません．何故なら，初期の段階では損をするが後の段階で大きな利益を得られるような選び方が最適解かもしれないからです．そこで，全数検査を避けつつも最適解に必ず到達できる\textgt{動的計画法}（\textgt{ダイナミックプログラミング}）をご紹介します．
+\section{動的計画法}
+動的計画法では1つ目の変数から順番に見ていきます．まず，$x_1$は$f_1(x_1)$と$h_1(x_1, x_2)$にしか関係しません．しかし，$x_2$の値が決まっていなければ$h_1(x_1, x_2)$の値を決めることはできません．そこで，$x_2$が取り得るそれぞれの値について，$f_1(x_1) + h_1(x_1, x_2)$を最大にするような$x_1$の値を求め，それを$x_2$の関数として$\hat x_1(x_2)$と書くことにします．そして，その最大値も$x_2$の関数として
+\[
+f_2(x_2) = \max_{x_1}[f_1(x_1) + h_1(x_1, x_2)]
+\]
+と書くことにします．ここで，右辺は「$x_2$を固定して$x_1$を変化させたときに$f_1(x_1) + h_1(x_1, x_2)$が取り得る最大値」を意味します．そうすると，式（\ref{pair}）は以下のように書き直すことができます．
+\begin{eqnarray}
+\label{decrease}
+J = f_2(x_2) + h_2(x_2, x_3)+ h_3(x_3, x_4) + \cdots + h_{n - 1}(x_{n - 1}, x_n) \rightarrow \max
+\end{eqnarray}
+この式は式（\ref{pair}）と同じ形であり，変数が一つ減っているので，同様の操作を繰り返せば良いことが分かります．すなわち，
+\[
+f_3(x_3) = \max_{x_2}[f_2(x_2) + h_2(x_2, x_3)]
+\]
+とおき，最大値を与える$x_2$を$x_3$の関数として$\hat x_2(x_3)$とおきます．すると，式（\ref{decrease}）は以下のようになります．
+\begin{eqnarray}
+\label{third}
+J = f_3(x_3) + h_3(x_3, x_4)+ h_4(x_4, x_5) + \cdots + h_{n - 1}(x_{n - 1}, x_n) \rightarrow \max
+\end{eqnarray}
+このような操作を繰り返して，最後に
+\[
+f_n(x_n) = \max_{x_{n - 1}}[f_{n - 1}(x_{n - 1}) + h_{n - 1}(x_{n - 1}, x_n)]
+\]
+とおき，最大値を与える$x_{n - 1}$を$x_n$の関数として$\hat x_{n - 1}(x_n)$とおくと，式（\ref{third}）は以下の形になります．
+\[
+J = f_n(x_n) \rightarrow \max
+\]
+そうすると，あとは$x_n$の取り得る値を全て試せば$J$の最大値が分かります．また，$J$を最大にするような各変数の値は，次のようにすれば求まります．まず，$f_n$を最大にするような$x_n$の値を$x_n^*$とします．このとき，最適な$x_{n - 1}$の値$x_{n - 1}^*$は$\hat x_{n - 1}(x_n^*)$となります．以下，逆にたどっていくことにより，$x_{n - 2}$の最適な値$x_{n - 2}^* = \hat x_{n - 2}(x_{n - 1}^*), \cdots, x_1$の最適な値$x_1^* = \hat x_1(x_2^*)$を求めることができます．上の手順をまとめると，以下のようになります．
+\begin{itembox}[l]{動的計画法の手順}
+\begin{enumerate}
+   \item $i = 1, \cdots, n - 1$に対して，関数
+   \[
+   f_{i + 1}(x_{i + 1}) = \max_{x_i}[f_i(x_i) + h_i(x_i, x_{i + 1})]
+   \]
+   を定義し，その最大値を与える$x_i$を関数$\hat x_i(x_{i + 1})$として定義する．
+   \item $x_n$の取り得る値を全て試して$f_n(x_n)$の最大値を求める．その最大値が$J$の最大値である．また，最大値を与える$x_n$を$x_n^*$とする．
+   \item $i = n - 1, \cdots, 1$に対して$x_i^* = \hat x_i(x_{i + 1}^*)$を計算する．
+   \item $(x_1^*, x_2^*, \cdots, x_n^*)$が$J$の最大値を与える各変数の値の組である．
+\end{enumerate}
+\end{itembox}
+\section{具体例}
+次の関数を最大にする解を求めてみましょう（この例では$N = 3, n = 4$です）．
+\[
+J = f_1(x_1) + h_1(x_1, x_2) + h_2(x_2, x_3) + h_3(x_3, x_4) \rightarrow \max
+\]
+ただし，$f_1(x_1), h_1(x_1, x_2), h_2(x_2, x_3), h_3(x_3, x_4)$は次のように与えられているとします．
+\begin{table}[H]
+\begin{center}
+\caption{$f_1(x_1)$}
+  \begin{tabular}{|c||c|c|c|} \hline
+    $x_1$ & 0 & 1 & 2 \\ \hline \hline
+    $f_1(x_1)$ & 5 & 0 & 1 \\ \hline
+  \end{tabular}
+  \end{center}
+\end{table}
+\begin{table}[H]
+\begin{center}
+\caption{$h_1(x_1, x_2)$}
+  \begin{tabular}{|c||c|c|c|} \hline
+    $h_1$ & $x_2 = 1$ & $x_2 = 2$ & $x_2 = 3$ \\ \hline \hline
+    $x_1 = 0$ & 2 & 3 & 0 \\
+    $x_1 = 1$ & 2 & 4 & 0 \\
+    $x_1 = 2$ & 0 & 2 & 8 \\ \hline
+  \end{tabular}
+  \end{center}
+\end{table}
+\begin{table}[H]
+\begin{center}
+\caption{$h_2(x_2, x_3)$}
+  \begin{tabular}{|c||c|c|c|} \hline
+    $h_2$ & $x_3 = -1$ & $x_3 = 0$ & $x_3 = 1$ \\ \hline \hline
+    $x_2 = 1$ & 0 & 0 & 3 \\
+    $x_2 = 2$ & 1 & 2 & 0 \\
+    $x_2 = 3$ & 3 & 0 & 0 \\ \hline
+  \end{tabular}
+  \end{center}
+\end{table}
+\begin{table}[H]
+\begin{center}
+\caption{$h_3(x_3, x_4)$}
+  \begin{tabular}{|c||c|c|c|} \hline
+    $h_3$ & $x_4 = 1$ & $x_4 = 2$ & $x_4 = 3$ \\ \hline \hline
+    $x_3 = -1$ & 0 & 8 & 3 \\
+    $x_3 = 0$ & 0 & 0 & 3 \\
+    $x_3 = 1$ & 1 & 3 & 2 \\ \hline
+  \end{tabular}
+  \end{center}
+\end{table}
+
+このとき，次のようにすれば解が求まります．
+\begin{enumerate}
+   \item $f_2(x_2), \hat x_1(x_2)$を次のように定義する（$x_2$の各値に対して$f_1 + h_1$の最大値に下線が引いてあります）．
+   \begin{table}[H]
+   \begin{center}
+   \caption{$f_1(x_1) + h_1(x_1, x_2)$}
+   \begin{tabular}{|c||c|c|c|} \hline
+    $f_1 + h_1$ & $x_2 = 1$ & $x_2 = 2$ & $x_2 = 3$ \\ \hline \hline
+    $x_1 = 0$ & \underline{5 + 2} & \underline{5 + 3} & 5 + 0 \\
+    $x_1 = 1$ & 0 + 2 & 0 + 4 & 0 + 0 \\
+    $x_1 = 2$ & 1 + 0 & 1 + 2 & \underline{1 + 8} \\ \hline
+   \end{tabular}
+   \end{center}
+   \end{table}
+   \begin{table}[H]
+   \begin{center}
+   \caption{$f_2(x_2), \hat x_1(x_2)$}
+   \begin{tabular}{|c||c|c|c|} \hline
+    & $x_2 = 1$ & $x_2 = 2$ & $x_2 = 3$ \\ \hline \hline
+    $f_2$ & 7 & 8 & 9 \\
+    $\hat x_1$ & 0 & 0 & 2 \\ \hline
+   \end{tabular}
+   \label{f2x1}
+   \end{center}
+   \end{table}
+   \item $f_3(x_3), \hat x_2(x_3)$を次のように定義する（$x_3$の各値に対して$f_2 + h_2$の最大値に下線が引いてあります）．
+   \begin{table}[H]
+   \begin{center}
+   \caption{$f_2(x_2) + h_2(x_2, x_3)$}
+   \begin{tabular}{|c||c|c|c|} \hline
+    $f_2 + h_2$ & $x_3 = -1$ & $x_3 = 0$ & $x_3 = 1$ \\ \hline \hline
+    $x_2 = 1$ & 7 + 0 & 7 + 0 & \underline{7 + 3} \\
+    $x_2 = 2$ & 8 + 1 & \underline{8 + 2} & 8 + 0 \\
+    $x_2 = 3$ & \underline{9 + 3} & 9 + 0 & 9 + 0 \\ \hline
+   \end{tabular}
+   \end{center}
+   \end{table}
+   \begin{table}[H]
+   \begin{center}
+   \caption{$f_3(x_3), \hat x_2(x_3)$}
+   \begin{tabular}{|c||c|c|c|} \hline
+    & $x_3 = -1$ & $x_3 = 0$ & $x_3 = 1$ \\ \hline \hline
+    $f_3$ & 12 & 10 & 10 \\
+    $\hat x_2$ & 3 & 2 & 1 \\ \hline
+   \end{tabular}
+   \label{f3x2}
+   \end{center}
+   \end{table}
+   \item $f_4(x_4), \hat x_3(x_4)$を次のように定義する（$x_4$の各値に対して$f_3 + h_3$の最大値に下線が引いてあります）．
+   \begin{table}[H]
+   \begin{center}
+   \caption{$f_3(x_3) + h_3(x_3, x_4)$}
+   \begin{tabular}{|c||c|c|c|} \hline
+    $f_3 + h_3$ & $x_4 = 1$ & $x_4 = 2$ & $x_4 = 3$ \\ \hline \hline
+    $x_3 = -1$ & \underline{12 + 0} & \underline{12 + 8} & \underline{12 + 3} \\
+    $x_3 = 0$ & 10 + 0 & 10 + 0 & 10 + 3 \\
+    $x_3 = 1$ & 10 + 1 & 10 + 3 & 10 + 2 \\ \hline
+   \end{tabular}
+   \end{center}
+   \end{table}
+   \begin{table}[H]
+   \begin{center}
+   \caption{$f_4(x_4), \hat x_3(x_4)$}
+   \begin{tabular}{|c||c|c|c|} \hline
+    & $x_4 = 1$ & $x_4 = 2$ & $x_4 = 3$ \\ \hline \hline
+    $f_4$ & 12 & 20 & 15 \\
+    $\hat x_3$ & -1 & -1 & -1 \\ \hline
+   \end{tabular}
+   \label{f4x3}
+   \end{center}
+   \end{table}
+   \item $f_4(x_4)$を最大にする$x_4$は表\ref{f4x3}より2であり，そのときの最大値は$J = 20$である．
+   \item $x_4 = 2$に対する最適な$x_3$は表\ref{f4x3}より$\hat x_3(2) = -1$である．
+   \item $x_3 = -1$に対する最適な$x_2$は表\ref{f3x2}より$\hat x_2(-1) = 3$である．
+   \item $x_2 = 3$に対する最適な$x_1$は表\ref{f2x1}より$\hat x_1(3) = 2$である．
+   \item 以上より次の最適解が得られる．
+   \[
+   x_1 = 2, x_2 = 3, x_3 = -1, x_4 = 2, J = 20
+   \]
+\end{enumerate}
+\section{補足}
+動的計画法は，全数検査と比べると非常に高速な手法です．全数検査では$N^n$通りの値の組合せに対して$J$を計算しますが，上の例で$N \times N$の表を$(n - 1)$回書いたことから分かるように，動的計画法ではおよそ$nN^2$回の計算をすれば最適解が求まります．例えば，$N = n = 10$とすると，$N^n = 10^{10}, nN^2 = 10^3$ですから，$10^7$倍の違いがあることになります．
+
+このように，全数検査と比較すると動的計画法は圧倒的に高速なのですが，それでも上記の方法だとコンピューターを用いても現実的な時間では解けないことが多々あります．そこで，ほとんどの場合，その問題特有の性質を利用してさらに工夫する必要があります．
+\section{終わりに}
+いかがだったでしょうか．ここまで動的計画法の原理や具体例を紹介してきましたが，これだけでは現実世界の問題でどのように役立つのかピンとこない方も多いと思います．冒頭で述べたように，動的計画法は幅広い分野で使われているので，この記事を読んで興味を持った方は自分で勉強してみることをおすすめします．最後まで読んでいただきありがとうございました．
+
+ちなみに，第4章の例題に第2章の解法（？）を適用すると最適解を得られません．暇なときに試してみて下さい．
+\section{参考文献}
+金谷健一『これなら分かる最適化数学ー基礎原理から計算手法までー』共立出版，2005
+\end{document}
